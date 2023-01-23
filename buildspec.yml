@@ -1,0 +1,36 @@
+version: 0.2
+
+env:
+  variables:
+    - LAMBDA: serverless_gin_lambda
+    - PROJECT: serverless_gin_api
+
+phases:
+  install:
+    runtime-versions:
+      golang: 1.13
+    commands:
+      - echo Installing
+      - 'aws s3 mb s3://$PROJECT'
+    on-failure: CONTINUE
+  pre_build:
+    commands:
+      - echo Testing
+      - go test -v ./...
+  build:
+    commands:
+      - echo Building
+      - go build -o $LAMBDA
+  post_build:
+    commands:
+      - echo Packaging
+      - 'zip function.zip $LAMBDA/*.go'
+      - echo Deploying
+      - 'aws s3 cp function.zip s3://$PROJECT/$LAMBDA-$CODEBUILD_BUILD_NUMBER.zip'
+      - 'aws lambda update-function-code --function-name $LAMBDA --publish --s3-bucket $PROJECT --s3-key $LAMBDA-$CODEBUILD_BUILD_NUMBER.zip'
+    finally:
+      - echo Completed all phases on $(date)
+
+artifacts:
+  files:
+    - '**/*'
